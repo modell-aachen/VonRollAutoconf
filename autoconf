@@ -1,0 +1,75 @@
+#!/usr/bin/perl
+# Autoconfig script to set hostname and more for Von Roll replication servers.
+# Maik Glatki<glatki@modell-aachen.de>, Modell Aachen GmbH 2015.
+# License: GPL 3.0
+#
+use strict;
+use warnings;
+
+# Core modules
+use Term::ANSIColor;
+use Sys::Hostname;# Core modules
+use Cwd qw(abs_path);
+use File::Basename;
+use File::Copy;
+
+my $ressources = dirname(abs_path(__FILE__)) . "/ressources";
+
+print color "bold";
+
+print "This is the autoconfig script for the Q.wiki replication server template.\n";
+
+# Check permissions
+if ( getlogin ne 'root' ) {
+    print color "red";
+    print "This script must be executed as user 'root'. Exiting.\n";
+    exit 1;
+}
+
+# Set hostname
+print "Current Hostname is " . hostname() . ". Enter new hostname or press enter keep current hostname: ";
+my $newhn = readline();
+chomp($newhn);
+
+if ( $newhn ne '' ) {
+    print "Setting hostname to $newhn..";
+    system("echo $newhn > /etc/hostname");
+    system("hostname $newhn");
+}
+
+# Apache2 and Foswiki autoconfig
+my $answer = 0;
+while ( $answer == 0 ) {
+    print "\nDo you want me to reconfigure the local Q.wiki (if there is no wiki already running you usually want that)[Y/N]? ";
+    my $recon = readline();
+    chomp( $recon );
+    if ( $recon =~ /^(yes)|(y)|(n)|(no)$/i ) { $answer = 1; }
+    if ( $recon =~ /^y(es)?/i ) {
+        my $dom = '';
+        while ( $dom eq '' ) {
+            print "\nEnter Q.wiki domain, i.e, the name of the wiki as seen by the user (example: wiki123.adis.corp): ";
+            my $in = readline();
+            chomp $in;
+            if ( $in ne '' ) {
+                $dom = $in;
+            }
+        }
+        print "\nEnter short domain name. Press enter to ignore this setting: ";
+        my $shortdom = readline;
+        chomp $shortdom;
+        copy( "$ressources/qwiki.conf", "/etc/apache2/sites-enabled/qwiki.conf" );
+        my $sed = "sed -i 's/%DOM%/$dom/g /etc/apache2/sites-enabled/qwiki.conf";
+        system( $sed );
+        if ( $shortdom ne '' ) {
+            $sed = "sed -i 's/%SHORTDOM%/$shortdom/g /etc/apache2/sites-enabled/qwiki.conf";
+            system( $sed );
+        }
+    }
+}
+
+print "\nNow regenerating ssh keys... ";
+system("rm /etc/ssh/ssh_host_*");
+system("ssh-keygen -A > /dev/null");
+print "done.\n";
+
+print "\nYou may now restart the approriate services, or simply enter \"reboot\" to reboot the server.\n";
