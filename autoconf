@@ -27,7 +27,7 @@ if ( getlogin ne 'root' ) {
 }
 
 # Set hostname
-print "Current Hostname is " . hostname() . ". Enter new hostname or press enter keep current hostname: ";
+print "Current Hostname is " . hostname() . ". Enter new hostname or press enter keep current hostname (Example 'CHBBQWIK15.adis.corp'): ";
 my $newhn = readline();
 chomp($newhn);
 
@@ -57,13 +57,22 @@ while ( $answer == 0 ) {
         print "\nEnter short domain name. Press enter to ignore this setting: ";
         my $shortdom = readline;
         chomp $shortdom;
-        copy( "$ressources/qwiki.conf", "/etc/apache2/sites-enabled/qwiki.conf" );
-        my $sed = "sed -i 's/%DOM%/$dom/g /etc/apache2/sites-enabled/qwiki.conf";
+        copy( "$ressources/qwiki.conf", "/etc/apache2/sites-available/qwiki.conf" );
+        copy( "$ressources/LocalSite.cfg", "/var/www/qwikis/qwiki/lib/LocalSite.cfg" );
+        my $sed = "sed -i 's/%DOM%/$dom/g /etc/apache2/sites-available/qwiki.conf";
+        system( $sed );
+        $sed = " sed -i 's/^ServerName .\+/ServerName $dom/ /etc/apache2/apache2.conf";
         system( $sed );
         if ( $shortdom ne '' ) {
-            $sed = "sed -i 's/%SHORTDOM%/$shortdom/g /etc/apache2/sites-enabled/qwiki.conf";
+            $sed = "sed -i 's/%SHORTDOM%/$shortdom/g /etc/apache2/sites-available/qwiki.conf";
             system( $sed );
         }
+        # Change LocalSite.cfg
+        open( my $fh, '>>', '/var/www/qwikis/qwiki/lib/LocalSite.cfg') or die "Could not open LocalSite.cfg";
+        print $fh '$Foswiki::cfg{DefaultUrlHost} = \'http://' . $dom . '\';';
+        print $fh '$Foswiki::cfg{PermittedRedirectHostUrls} = \'http://' . $shortdom . '\';';
+        close $fh;
+
     }
 }
 
